@@ -1,6 +1,6 @@
 {
   "name": "phant-stream-mongodb",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "main": "index.js",
   "description": "mongodb storage for phant data",
   "homepage": "https://github.com/sparkfun/phant-stream-mongodb",
@@ -29,5 +29,8 @@
   },
   "scripts": {
     "test": "grunt"
+  },
+  "engines": {
+    "node": "^0.10.29"
   }
 }

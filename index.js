@@ -36,7 +36,6 @@ function PhantStream(options) {
   util._extend(this, options || {});
 
   this.connect();
-  
 
 }
 
