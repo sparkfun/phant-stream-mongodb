@@ -77,6 +77,8 @@ app.connect = function() {
 app.readStream = function(id, page) {
 
   var model = Storage(id, this.cap),
+      readable,
+      query,
       all = false;
 
   if(! page || page < 0) {
@@ -85,13 +87,23 @@ app.readStream = function(id, page) {
   }
 
   // reverse sort
-  var cursor = model.find().sort({'$natural': -1});
+  query = model.find().sort({'$natural': -1});
 
   if(! all) {
-    cursor.offset((page - 1) * this.pageSize).limit(this.pageSize);
+    query.skip((page - 1) * this.pageSize).limit(this.pageSize);
   }
 
-  return cursor.stream({ transform: function(doc) { return doc.toObject(); } });
+  readable = query.stream({
+    transform: function(doc) {
+      return doc.toObject();
+    }
+  });
+
+  process.nextTick(function() {
+    readable.emit('open');
+  });
+
+  return readable;
 
 };
 
