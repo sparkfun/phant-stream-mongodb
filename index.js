@@ -11,6 +11,7 @@
 /**** Module dependencies ****/
 var util = require('util'),
     events = require('events'),
+    mongoose = require('mongoose'),
     Storage = require('./lib/model'),
     Writable = require('./lib/writable');
 
@@ -76,7 +77,7 @@ app.connect = function() {
 
 app.readStream = function(id, page) {
 
-  var readable = Storage(id, this.cap),
+  var model = Storage(id, this.cap),
       all = false;
 
   if(! page || page < 0) {
@@ -85,14 +86,64 @@ app.readStream = function(id, page) {
   }
 
   // reverse sort
-  var cursor = readable.find().sort({'$natural': -1});
+  var cursor = model.find().sort({'$natural': -1});
 
   if(! all) {
     cursor.offset((page - 1) * this.pageSize).limit(this.pageSize);
   }
 
-  return cursor.stream();
+  return cursor.stream({ transform: function(doc) { return doc.toObject(); } });
 
 };
 
-app.getObjectReadableStream = app.objectReadStream;
+app.objectReadStream = app.readStream;
+
+app.writeStream = function(id) {
+
+  return new Writable(id, {
+    storage: Storage(id, this.cap)
+  });
+
+};
+
+app.write = function(id, data) {
+
+  this.writeStream(id).end(data);
+
+};
+
+app.clear = function(id) {
+
+  this.mongoose.connection.collections[id].drop(function(err) {
+    if(err) {
+      return this.emit('error', err);
+    }
+  }.bind(this));
+
+};
+
+app.stats = function(id, callback) {
+
+  this.mongoose.connection.collections[id].stats(function(err, s) {
+
+    if(err) {
+      return callback(err);
+    }
+
+    var stats = {
+      cap: this.cap,
+      used: s.size,
+      pageCount: Math.ceil(s.count / this.pageSize)
+    };
+
+    stats.remaining = stats.cap - stats.used;
+
+    if(stats.remaining < 0) {
+      stats.remaining = 0;
+    }
+
+    callback(null, stats);
+
+  }.bind(this));
+
+};

@@ -4,8 +4,7 @@ var Stream = require('../index.js'),
     i = 0;
 
 var stream = new Stream({
-  cap: 50 * 1024 * 1024,
-  chunk: 50 * 1024
+  cap: 50 * 1024 * 1024
 });
 
 function generateData(size) {
@@ -60,6 +59,7 @@ exports.read = function(test) {
 
 exports.cleanup = function(test) {
 
+  stream.clear('abcdef12345');
   test.done();
 
 };
