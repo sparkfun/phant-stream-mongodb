@@ -113,6 +113,10 @@ app.write = function(id, data) {
 
 app.clear = function(id) {
 
+  if(!(id in this.mongoose.connection.collections)) {
+    return;
+  }
+
   this.mongoose.connection.collections[id].drop(function(err) {
     if(err) {
       return this.emit('error', err);
@@ -122,6 +126,15 @@ app.clear = function(id) {
 };
 
 app.stats = function(id, callback) {
+
+  if(!(id in this.mongoose.connection.collections)) {
+    return callback(null, {
+      cap: this.cap,
+      used: 0,
+      pageCount: 0,
+      remaining: this.cap
+    });
+  }
 
   this.mongoose.connection.collections[id].stats(function(err, s) {
 
