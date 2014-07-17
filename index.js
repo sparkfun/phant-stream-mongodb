@@ -11,7 +11,7 @@
 /**** Module dependencies ****/
 var util = require('util'),
     events = require('events'),
-    Readable = require('./lib/readable'),
+    Storage = require('./lib/model'),
     Writable = require('./lib/writable');
 
 /**** Make PhantStream an event emitter ****/
@@ -34,9 +34,65 @@ function PhantStream(options) {
   // apply the options
   util._extend(this, options || {});
 
+  this.connect();
+  
+
 }
 
 app.name = 'Stream MongoDB';
 app.cap = 50 * 1024 * 1024; // 50mb
-app.chunk = 500 * 1024; // 500k
+app.pageSize = 250; // 250 items per page
+app.mongoose = false;
+app.url = 'mongodb://localhost/test';
 
+/**
+ * connect
+ *
+ * connects to mongo using the mongo url
+ */
+app.connect = function() {
+
+  // return if already connected
+  if(this.mongoose && this.mongoose.connection.readyState) {
+    return;
+  }
+
+  // connect to mongo
+  mongoose.connect(this.url, {server: {auto_reconnect: true}});
+
+  // log errors
+  mongoose.connection.on('error', function(err) {
+    this.emit('error', err);
+  }.bind(this));
+
+  // log connection status
+  mongoose.connection.once('open', function() {
+    this.emit('info', 'Connected to MongoDB');
+  }.bind(this));
+
+  this.mongoose = mongoose;
+
+};
+
+app.readStream = function(id, page) {
+
+  var readable = Storage(id, this.cap),
+      all = false;
+
+  if(! page || page < 0) {
+    all = true;
+    page = 1;
+  }
+
+  // reverse sort
+  var cursor = readable.find().sort({'$natural': -1});
+
+  if(! all) {
+    cursor.offset((page - 1) * this.pageSize).limit(this.pageSize);
+  }
+
+  return cursor.stream();
+
+};
+
+app.getObjectReadableStream = app.objectReadStream;
