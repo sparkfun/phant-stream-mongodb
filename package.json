@@ -32,5 +32,31 @@
   },
   "engines": {
     "node": "^0.10.29"
+  },
+  "phantConfig": {
+    "name": "MongoDB",
+    "options": [
+      {
+        "label": "MongoDB URL",
+        "name": "url",
+        "default": "mongodb://localhost/phant",
+        "type": "text",
+        "description": "URL for MongoDB server (mongodb://host:port/db)"
+      },
+      {
+        "label": "Cap",
+        "name": "cap",
+        "default": "52428800",
+        "type": "number",
+        "description": "Cap the size of the streams to this number in bytes. 0 for no cap."
+      },
+      {
+        "label": "Page Size",
+        "name": "pageSize",
+        "default": "250",
+        "type": "number",
+        "description": "Number of items returned per page when requesting data"
+      }
+    ]
   }
 }
