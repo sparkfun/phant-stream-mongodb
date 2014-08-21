@@ -39,7 +39,7 @@ function PhantStream(options) {
 
 }
 
-app.name = 'Stream MongoDB';
+app.moduleName = 'Stream MongoDB';
 app.cap = 50 * 1024 * 1024; // 50mb
 app.pageSize = 250; // 250 items per page
 app.mongoose = false;
