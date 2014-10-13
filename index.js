@@ -12,7 +12,6 @@
 var util = require('util'),
     events = require('events'),
     MongoClient = require('mongodb').MongoClient,
-    Readable = require('./lib/readable'),
     Writable = require('./lib/writable');
 
 /**** Make PhantStream an event emitter ****/
@@ -73,13 +72,32 @@ app.connect = function() {
 
 app.readStream = function(id, page) {
 
-  return new Readable({
-    mongo: this.db,
-    id: id,
-    page: page,
-    pageSize: this.pageSize,
-    cap: this.cap
+  var query,
+      all = false;
+
+  if(! this.db) {
+    return;
+  }
+
+  if(! page || page < 0) {
+    all = true;
+    page = 1;
+  }
+
+  // reverse sort
+  query = this.db.collection(id).find({}, {_id:0}).sort({'$natural': -1});
+
+  if(! all) {
+    query.skip((page - 1) * this.pageSize).limit(this.pageSize);
+  }
+
+  query = query.stream();
+
+  process.nextTick(function() {
+    query.emit('open');
   });
+
+  return query;
 
 };
 
@@ -87,7 +105,11 @@ app.objectReadStream = app.readStream;
 
 app.writeStream = function(id) {
 
-  return new Writable({
+  if(!this.db) {
+    return false;
+  }
+
+  return Writable({
     mongo: this.db,
     id: id,
     cap: this.cap
