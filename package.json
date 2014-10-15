@@ -16,6 +16,7 @@
   },
   "license": "GPL-3.0",
   "dependencies": {
+    "bluebird": "^2.3.5",
     "mongodb": "~2.0"
   },
   "devDependencies": {
