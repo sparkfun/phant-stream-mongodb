@@ -11,7 +11,9 @@
 /**** Module dependencies ****/
 var util = require('util'),
     events = require('events'),
-    MongoClient = require('mongodb').MongoClient,
+    Promise = require('bluebird'),
+    DB = require('./lib/db'),
+    Readable = require('./lib/readable'),
     Writable = require('./lib/writable');
 
 /**** Make PhantStream an event emitter ****/
@@ -34,7 +36,17 @@ function PhantStream(options) {
   // apply the options
   util._extend(this, options || {});
 
-  this.connect();
+  // convert cap to int
+  this.cap = parseInt(this.cap);
+
+  // make sure cap is numeric
+  if(isNaN(this.cap)) {
+    this.cap = 0;
+  }
+
+  this.db = DB({
+    url: this.url
+  });
 
 }
 
@@ -44,70 +56,20 @@ app.pageSize = 250; // 250 items per page
 app.url = 'mongodb://localhost/test';
 app.db = false;
 
-/**
- * connect
- *
- * connects to mongo using the mongo url
- */
-app.connect = function() {
-
-  var self = this;
-
-  // return if already connected
-  if(this.db) {
-    return;
-  }
-
-  MongoClient.connect(this.url, function(err, db) {
-
-    if(err) {
-      return self.emit('error', err);
-    }
-
-    self.db = db;
-
-  });
-
-};
-
 app.readStream = function(id, page) {
 
-  var query,
-      all = false;
-
-  if(! this.db) {
-    return;
-  }
-
-  if(! page || page < 0) {
-    all = true;
-    page = 1;
-  }
-
-  // reverse sort
-  query = this.db.collection(id).find({}, {_id:0}).sort({'$natural': -1});
-
-  if(! all) {
-    query.skip((page - 1) * this.pageSize).limit(this.pageSize);
-  }
-
-  query = query.stream();
-
-  process.nextTick(function() {
-    query.emit('open');
+  return Readable({
+    mongo: this.db,
+    id: id,
+    page: parseInt(page),
+    pageSize: parseInt(this.pageSize)
   });
-
-  return query;
 
 };
 
 app.objectReadStream = app.readStream;
 
 app.writeStream = function(id) {
-
-  if(!this.db) {
-    return false;
-  }
 
   return Writable({
     mongo: this.db,
@@ -127,12 +89,23 @@ app.clear = function(id) {
 
   var self = this;
 
-  this.db.dropCollection(id, function(err, result) {
+  if(!this.db) {
+    this.emit('error', 'MongoDB connection failed');
+    return;
+  }
 
-    if(err) {
-      self.emit('error', err);
-    }
+  this.db.connect().then(function(db) {
 
+    db.dropCollection(id, function(err, result) {
+
+      if(err) {
+        self.emit('error', err);
+      }
+
+    });
+
+  }).catch(function(err) {
+    self.emit('error', err);
   });
 
 };
@@ -141,19 +114,16 @@ app.stats = function(id, callback) {
 
   var self = this;
 
-  this.db.collection(id, {strict:true}, function(err, col) {
+  if(!this.db) {
+    this.emit('error', 'MongoDB connection failed');
+    return;
+  }
 
-    if(err) {
-      return callback(null, {
-        cap: self.cap,
-        used: 0,
-        pageCount: 0,
-        remaining: self.cap
-      });
-    }
+  this.db.connect().then(function(db) {
 
-    col.stats(function(err, s) {
+    db.collection(id, {strict:true}, function(err, col) {
 
+      // collection doesn't exist, return empty stats
       if(err) {
         return callback(null, {
           cap: self.cap,
@@ -163,20 +133,49 @@ app.stats = function(id, callback) {
         });
       }
 
-      var stats = {
-        cap: self.cap,
-        used: s.size,
-        pageCount: Math.ceil(s.count / self.pageSize)
-      };
+      // get stats from MongoDB
+      col.stats(function(err, s) {
 
-      stats.remaining = stats.cap - stats.used;
+        // grabbing collection stats failed, return empty stats
+        if(err) {
+          return callback(null, {
+            cap: self.cap,
+            used: 0,
+            pageCount: 0,
+            remaining: self.cap
+          });
+        }
 
-      if(stats.remaining < 0) {
-        stats.remaining = 0;
-      }
+        // build stats object
+        var stats = {
+          cap: self.cap,
+          used: s.size,
+          pageCount: Math.ceil(s.count / self.pageSize)
+        };
 
-      callback(null, stats);
+        stats.remaining = stats.cap - stats.used;
 
+        if(stats.remaining < 0) {
+          stats.remaining = 0;
+        }
+
+        callback(null, stats);
+
+      });
+
+    });
+
+  }).catch(function(err) {
+
+    // log err
+    self.emit('error', err);
+
+    // return default stats object
+    return callback(null, {
+      cap: self.cap,
+      used: 0,
+      pageCount: 0,
+      remaining: self.cap
     });
 
   });
