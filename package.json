@@ -1,6 +1,6 @@
 {
   "name": "phant-stream-mongodb",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "main": "index.js",
   "description": "mongodb storage for phant data",
   "homepage": "https://github.com/sparkfun/phant-stream-mongodb",
