@@ -62,7 +62,8 @@ app.readStream = function(id, page) {
     mongo: this.db,
     id: id,
     page: parseInt(page),
-    pageSize: parseInt(this.pageSize)
+    pageSize: parseInt(this.pageSize),
+    cap: this.cap
   });
 
 };
